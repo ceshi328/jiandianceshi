@@ -13,16 +13,16 @@ Docker (Go 后端) \rightarrow 目标节点
 1. 创建工作目录
 
 建议在存储空间较大的分区创建，避免占满根目录。
-<pre>
+
 ```bash
 mkdir -p /vio2-4/docker/node-probe
 cd /vio2-4/docker/node-probe
 ```
-</pre>
+
 2. 写入主程序 main.go
 
 使用 cat 命令原样写入，确保 JSON 标签的反引号不被 Shell 解析。
-<pre>
+
 ```bash
 cat <<'EOF' > main.go
 package main
@@ -163,9 +163,11 @@ func probeRealNode(link string) (int, string, bool) {
 	return elapsed, country, true
 }
 EOF
+```
 
 3. 写入 Dockerfile
 
+```bash
 cat <<EOF > Dockerfile
 FROM golang:1.23-alpine AS builder
 ENV GOPROXY=https://goproxy.cn,direct
@@ -184,18 +186,17 @@ EXPOSE 8080
 CMD ["./probe-engine"]
 EOF
 ```
-</pre>
+
 4. 构建并启动
-<pre>
+
 ```bash
 docker build -t node-probe-engine .
 ```
-</pre>
-<pre>
+
 ```bash
 docker run -d --name node-probe --restart always -p 8080:8080 node-probe-engine
 ```
-</pre>
+
 第二阶段：内网穿透部署 (Cloudflare Tunnel)
 
 1. 创建隧道
@@ -209,7 +210,7 @@ docker run -d --name node-probe --restart always -p 8080:8080 node-probe-engine
 2. 在软路由部署 Tunnel 容器
 
 # 请将 你的TOKEN 替换为实际复制的内容
-<pre>
+
 ```bash
 docker run -d \
   --name cf-tunnel \
@@ -218,16 +219,16 @@ docker run -d \
   cloudflare/cloudflared:latest \
   tunnel --no-autoupdate run --token 你的TOKEN
 ```
-</pre>
+
 3. 配置公网域名 (Public Hostname)
 
 在 CF Tunnel 管理页面的 Public Hostname 中添加：
-<pre>
+
 ```bash
   - Public Hostname: api.yourdomain.com (你的域名)
   - Service: http://路由IP或者本地IP:8080
 ```
-</pre>
+
 第三阶段：前端仪表盘部署 (CF Pages / GitHub Pages)
 
 1. 前端代码 index.html
