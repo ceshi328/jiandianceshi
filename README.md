@@ -1,14 +1,15 @@
-🚀 节点质量分析仪 (Node Analyzer) 部署全指南
-
+#🚀 节点质量分析仪 (Node Analyzer) 部署全指南
+![成品展示](https://tup.pibaihuo.com/2608/09-18_17-15-10.jpg)
 本项目实现了一个专业的代理节点延迟探测系统。通过 Go + Docker (Alpine) 构建高性能后端，Cloudflare Tunnel
 实现安全内网穿透，Vue 3 + Tailwind CSS 构建现代化的前端仪表盘。
+![国家分开](https://tup.pibaihuo.com/2608/09-18_17-15-37.jpg)
 
-🛠️ 项目架构
+#🛠️ 项目架构
 
 用户浏览器 \rightarrow CF Pages (前端) \rightarrow CF Tunnel (公网入口) \rightarrow 软路由
 Docker (Go 后端) \rightarrow 目标节点
 
-第一阶段：后端探测引擎部署 (iStoreOS/OpenWrt)
+#第一阶段：后端探测引擎部署 (iStoreOS/OpenWrt)
 
 1. 创建工作目录
 
@@ -197,7 +198,7 @@ docker build -t node-probe-engine .
 docker run -d --name node-probe --restart always -p 8080:8080 node-probe-engine
 ```
 
-第二阶段：内网穿透部署 (Cloudflare Tunnel)
+#第二阶段：内网穿透部署 (Cloudflare Tunnel)
 
 1. 创建隧道
 
