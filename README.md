@@ -13,14 +13,17 @@ Docker (Go 后端) \rightarrow 目标节点
 1. 创建工作目录
 
 建议在存储空间较大的分区创建，避免占满根目录。
-
+<pre>
+```bash
 mkdir -p /vio2-4/docker/node-probe
 cd /vio2-4/docker/node-probe
-
-2. 写入后端代码 main.go
+```
+</pre>
+2. 写入主程序 main.go
 
 使用 cat 命令原样写入，确保 JSON 标签的反引号不被 Shell 解析。
-
+<pre>
+```bash
 cat <<'EOF' > main.go
 package main
 
@@ -37,17 +40,18 @@ import (
 )
 
 type Node struct {
-	Name    string `json:"name"`
-	Link    string `json:"link"`
-	Country string `json:"country"`
-	Latency int    `json:"latency"`
-	IsAlive bool   `json:"isAlive"`
+	Name     string `json:"name"`
+	Link     string `json:"link"`
+	Country  string `json:"country"`
+	Latency  int    `json:"latency"`
+	IsAlive  bool   `json:"isAlive"`
 }
 
 func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
+	// CORS 中间件
 	r.Use(func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -59,6 +63,7 @@ func main() {
 		c.Next()
 	})
 
+	// 接口 1：解析订阅链接
 	r.GET("/parse", func(c *gin.Context) {
 		url := c.Query("url")
 		if url == "" {
@@ -74,6 +79,7 @@ func main() {
 		c.JSON(200, nodes)
 	})
 
+	// 接口 2：检测节点状态
 	r.GET("/ping", func(c *gin.Context) {
 		link := c.Query("link")
 		if link == "" {
@@ -87,9 +93,11 @@ func main() {
 			"alive":   alive,
 		})
 	})
+
 	r.Run(":8080")
 }
 
+// 辅助函数：解析订阅内容
 func parseSubscription(url string) ([]Node, error) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -105,13 +113,16 @@ func parseSubscription(url string) ([]Node, error) {
 	return splitNodes(string(decoded)), nil
 }
 
+// 辅助函数：将文本分割为节点列表
 func splitNodes(content string) []Node {
 	var nodes []Node
 	lines := strings.Split(content, "\n")
 	count := 1
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		if line == "" { continue }
+		if line == "" {
+			continue
+		}
 		if strings.HasPrefix(line, "vmess://") || strings.HasPrefix(line, "vless://") || 
 		   strings.HasPrefix(line, "ss://") || strings.HasPrefix(line, "trojan://") {
 			nodes = append(nodes, Node{Name: fmt.Sprintf("节点 %d", count), Link: line, Country: "Unknown"})
@@ -121,6 +132,7 @@ func splitNodes(content string) []Node {
 	return nodes
 }
 
+// 辅助函数：探测节点延迟与国家
 func probeRealNode(link string) (int, string, bool) {
 	var hostPort string
 	if strings.Contains(link, "@") {
@@ -129,6 +141,7 @@ func probeRealNode(link string) (int, string, bool) {
 	} else {
 		return 999, "Unknown", false
 	}
+
 	start := time.Now()
 	conn, err := net.DialTimeout("tcp", hostPort, 5*time.Second)
 	if err != nil {
@@ -136,14 +149,17 @@ func probeRealNode(link string) (int, string, bool) {
 	}
 	defer conn.Close()
 	elapsed := int(time.Since(start).Milliseconds())
-	host, _, _ := net.SplitHostPort(hostPort)
-	country := "Unknown"
+
+	// 通过 ip-api 获取地理位置
+	host := strings.Split(hostPort, ":")[0]
 	geoResp, err := http.Get("http://ip-api.com/line/" + host + "?fields=country")
+	country := "Unknown"
 	if err == nil {
 		geoBody, _ := io.ReadAll(geoResp.Body)
 		country = strings.TrimSpace(string(geoBody))
 		geoResp.Body.Close()
 	}
+
 	return elapsed, country, true
 }
 EOF
@@ -167,12 +183,19 @@ COPY --from=builder /app/probe-engine .
 EXPOSE 8080
 CMD ["./probe-engine"]
 EOF
-
+```
+</pre>
 4. 构建并启动
-
+<pre>
+```bash
 docker build -t node-probe-engine .
+```
+</pre>
+<pre>
+```bash
 docker run -d --name node-probe --restart always -p 8080:8080 node-probe-engine
-
+```
+</pre>
 第二阶段：内网穿透部署 (Cloudflare Tunnel)
 
 1. 创建隧道
@@ -186,20 +209,25 @@ docker run -d --name node-probe --restart always -p 8080:8080 node-probe-engine
 2. 在软路由部署 Tunnel 容器
 
 # 请将 你的TOKEN 替换为实际复制的内容
+<pre>
+```bash
 docker run -d \
   --name cf-tunnel \
   --restart always \
   --network host \
   cloudflare/cloudflared:latest \
   tunnel --no-autoupdate run --token 你的TOKEN
-
+```
+</pre>
 3. 配置公网域名 (Public Hostname)
 
 在 CF Tunnel 管理页面的 Public Hostname 中添加：
-
+<pre>
+```bash
   - Public Hostname: api.yourdomain.com (你的域名)
-  - Service: http://127.0.0.1:8080
-
+  - Service: http://路由IP或者本地IP:8080
+```
+</pre>
 第三阶段：前端仪表盘部署 (CF Pages / GitHub Pages)
 
 1. 前端代码 index.html
