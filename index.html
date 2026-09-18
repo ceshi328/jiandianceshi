@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Node Analyzer | 节点质量分析仪</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body { background-color: #0f172a; color: #e2e8f0; font-family: 'Inter', system-ui, sans-serif; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        .latency-low { color: #4ade80; }
+        .latency-mid { color: #fbbf24; }
+        .latency-high { color: #f87171; }
+        .fade-enter-active, .fade-leave-active { transition: all 0.3s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(10px); }
+    </style>
+</head>
+<body class="p-4 md:p-8 pb-40"> <!-- 增加底部内边距 -->
+    <div id="app" class="max-w-6xl mx-auto">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-white flex items-center gap-3">
+                    <i class="fas fa-satellite-dish text-blue-500"></i> Node Analyzer
+                </h1>
+                <p class="text-slate-400 mt-1">专业级节点链路质量探测工具</p>
+            </div>
+            <div class="text-right hidden md:block">
+                <span class="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">Backend: Online</span>
+            </div>
+        </div>
+
+        <!-- Input Section -->
+        <div class="glass rounded-2xl p-6 mb-8 shadow-xl">
+            <div class="flex flex-col md:flex-row gap-4">
+                <input v-model="inputUrl" 
+                       type="text" 
+                       placeholder="粘贴单节点链接或订阅 URL..." 
+                       class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
+                <button @click="startAnalysis" 
+                        :disabled="loading"
+                        class="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold py-3 px-8 rounded-xl transition-all flex items-center justify-center gap-2">
+                    <i v-if="loading" class="fas fa-spinner fa-spin"></i>
+                    <span v-else>开始分析</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Filter Chips -->
+        <div v-if="nodes.length > 0" class="flex flex-wrap gap-2 mb-6">
+            <button @click="filterCountry = ''" 
+                    :class="filterCountry === '' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'"
+                    class="px-3 py-1 rounded-full text-sm transition-all border border-slate-700 hover:border-blue-500">
+                全部
+            </button>
+            <button v-for="country in uniqueCountries" 
+                    @click="filterCountry = country"
+                    :class="filterCountry === country ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'"
+                    class="px-3 py-1 rounded-full text-sm transition-all border border-slate-700 hover:border-blue-500">
+                {{ country }}
+            </button>
+        </div>
+
+        <!-- Table Section -->
+        <div v-if="nodes.length > 0" class="glass rounded-2xl overflow-hidden shadow-xl">
+            <table class="w-full text-left border-collapse">
+                <thead>
+                    <tr class="bg-slate-800/50 text-slate-300 text-sm uppercase">
+                        <th class="px-6 py-4 font-medium">节点名称</th>
+                        <th class="px-6 py-4 font-medium">国家/地区</th>
+                        <th class="px-6 py-4 font-medium">延迟 (RTT)</th>
+                        <th class="px-6 py-4 font-medium text-right">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(node, index) in filteredNodes" 
+                        :key="index" 
+                        class="border-t border-slate-700/50 hover:bg-slate-700/30 transition-colors">
+                        <td class="px-6 py-4 text-slate-200 font-medium">{{ node.name }}</td>
+                        <td class="px-6 py-4">
+                            <span class="cursor-pointer hover:text-blue-400 transition-colors" @click="filterCountry = node.country">
+                                {{ node.country }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 font-mono">
+                            <span :class="getLatencyClass(node.latency)">
+                                {{ node.latency === 0 ? 'Testing...' : node.latency + ' ms' }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-right">
+                            <button @click="copyText(node.link)" class="text-slate-400 hover:text-white transition-colors p-2">
+                                <i class="far fa-copy"></i>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Bulk Copy Action -->
+        <transition name="fade">
+            <div v-if="filterCountry && filteredNodes.length > 0" class="fixed bottom-8 left-1/2 -translate-x-1/2 glass px-6 py-4 rounded-full shadow-2xl flex items-center gap-4 border-blue-500/50 z-50">
+                <span class="text-sm text-slate-300">已筛选 {{ filterCountry }} ({{ filteredNodes.length }}个)</span>
+                <button @click="copyBulk" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-bold transition-all">
+                    复制所有节点
+                </button>
+            </div>
+        </transition>
+
+        <!-- Empty State -->
+        <div v-if="nodes.length === 0 && !loading" class="text-center py-20">
+            <i class="fas fa-network-wired text-6xl text-slate-700 mb-4"></i>
+            <p class="text-slate-500">请输入订阅链接开始探测</p>
+        </div>
+
+        <!-- 底部占位符：彻底解决遮挡问题 -->
+        <div class="h-32"></div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed } = Vue;
+
+        createApp({
+            setup() {
+                const API_BASE_URL = '{{B_IP}}'; 
+
+                const inputUrl = ref('');
+                const loading = ref(false);
+                const nodes = ref([]);
+                const filterCountry = ref('');
+
+                const uniqueCountries = computed(() => {
+                    const countries = nodes.value.map(n => n.country);
+                    return [...new Set(countries)].filter(c => c && c !== 'Unknown');
+                });
+
+                const filteredNodes = computed(() => {
+                    let result = [...nodes.value];
+                    if (filterCountry.value) {
+                        result = result.filter(n => n.country === filterCountry.value);
+                    }
+                    return result.sort((a, b) => {
+                        if (a.latency === 0) return 1;
+                        if (b.latency === 0) return -1;
+                        return a.latency - b.latency;
+                    });
+                });
+
+                const getLatencyClass = (ms) => {
+                    if (ms === 0) return 'text-slate-500';
+                    if (ms < 100) return 'latency-low';
+                    if (ms < 300) return 'latency-mid';
+                    return 'latency-high';
+                };
+
+                const startAnalysis = async () => {
+                    if (!inputUrl.value) return;
+                    loading.value = true;
+                    nodes.value = [];
+                    filterCountry.value = ''; 
+
+                    try {
+                        const res = await fetch(`${API_BASE_URL}/parse?url=${encodeURIComponent(inputUrl.value)}`);
+                        const data = await res.json();
+                        nodes.value = data;
+
+                        nodes.value.forEach(async (node, index) => {
+                            try {
+                                const pRes = await fetch(`${API_BASE_URL}/ping?link=${encodeURIComponent(node.link)}`);
+                                const pData = await pRes.json();
+                                nodes.value[index].latency = pData.latency;
+                                nodes.value[index].country = pData.country;
+                            } catch (e) {
+                                nodes.value[index].latency = 999;
+                            }
+                        });
+                    } catch (e) {
+                        alert('请求后端失败，请检查 API 地址是否正确');
+                    } finally {
+                        loading.value = false;
+                    }
+                };
+
+                const copyText = (text) => {
+                    navigator.clipboard.writeText(text);
+                    alert('已复制到剪贴板');
+                };
+
+                const copyBulk = () => {
+                    const text = filteredNodes.value.map(n => n.link).join('\n');
+                    navigator.clipboard.writeText(text);
+                    alert(`已复制 ${filteredNodes.value.length} 个节点`);
+                };
+
+                return {
+                    inputUrl, loading, nodes, filterCountry, 
+                    uniqueCountries, filteredNodes, 
+                    getLatencyClass, startAnalysis, copyText, copyBulk
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
