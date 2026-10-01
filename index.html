@@ -4,136 +4,345 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Node Analyzer | 节点质量分析仪</title>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 注意：已移除 tailwindcss CDN，全部样式为原生 CSS，不再依赖外部样式服务 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        body { background-color: #0f172a; color: #e2e8f0; font-family: 'Inter', system-ui, sans-serif; }
-        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        * { box-sizing: border-box; }
+        [v-cloak] { display: none !important; }
+        body { background-color: #0f172a; color: #e2e8f0; font-family: 'Inter', system-ui, -apple-system, sans-serif; margin: 0; padding: 1rem; }
+        @media (min-width: 768px) { body { padding: 2rem; } }
+        .container { max-width: 72rem; margin: 0 auto; }
+
+        /* ---------- Header ---------- */
+        .header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 2rem; }
+        .header h1 { font-size: 1.875rem; font-weight: 700; color: #fff; margin: 0; display: flex; align-items: center; gap: .75rem; }
+        .header h1 i { color: #3b82f6; }
+        .subtitle { color: #94a3b8; margin-top: .25rem; }
+        .backend-wrap { display: flex; align-items: center; gap: .5rem; }
+        .badge { font-size: .75rem; padding: .25rem .5rem; border-radius: .25rem; border: 1px solid; display: inline-flex; align-items: center; gap: .375rem; }
+        .badge-online { background: rgba(34,197,94,.2); color: #4ade80; border-color: rgba(34,197,94,.3); }
+        .badge-offline { background: rgba(239,68,68,.2); color: #f87171; border-color: rgba(239,68,68,.3); }
+        .badge-checking { background: rgba(100,116,139,.2); color: #94a3b8; border-color: rgba(100,116,139,.3); }
+        .dot { width: .5rem; height: .5rem; border-radius: 9999px; display: inline-block; }
+        .icon-btn { background: none; border: none; color: #64748b; cursor: pointer; font-size: .75rem; padding: .25rem; }
+        .icon-btn:hover { color: #cbd5e1; }
+
+        /* ---------- Toast ---------- */
+        .toasts { position: fixed; top: 1rem; right: 1rem; z-index: 100; display: flex; flex-direction: column; gap: .5rem; align-items: flex-end; }
+        .toast { background: rgba(30,41,59,.9); border: 1px solid rgba(255,255,255,.1); padding: .625rem 1rem; border-radius: .75rem; box-shadow: 0 10px 30px rgba(0,0,0,.4); font-size: .875rem; display: flex; align-items: center; gap: .5rem; max-width: 24rem; color: #e2e8f0; }
+        .toast-success { border-color: rgba(34,197,94,.4); }
+        .toast-error { border-color: rgba(239,68,68,.5); }
+        .toast-warn { border-color: rgba(245,158,11,.5); }
+        .toast-enter-active, .toast-leave-active { transition: all .25s ease; }
+        .toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(-8px); }
+
+        /* ---------- Cards & inputs ---------- */
+        .card { background: rgba(30,41,59,.7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,.1); border-radius: 1rem; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,.35); }
+        .input-row { display: flex; flex-direction: column; gap: 1rem; }
+        @media (min-width: 768px) { .input-row { flex-direction: row; } }
+        .input-wrap { flex: 1; position: relative; min-width: 0; }
+        .text-input { width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: .75rem; padding: .75rem 2.5rem .75rem 1rem; color: #fff; font-size: 1rem; outline: none; transition: box-shadow .2s, border-color .2s; }
+        .text-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.5); }
+        .clear-btn { position: absolute; right: .75rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: #64748b; cursor: pointer; font-size: 1rem; }
+        .clear-btn:hover { color: #fff; }
+        .btn { font-weight: 700; padding: .75rem 2rem; border-radius: .75rem; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: .5rem; font-size: 1rem; transition: background .2s; color: #fff; white-space: nowrap; }
+        .btn-primary { background: #2563eb; }
+        .btn-primary:hover { background: #3b82f6; }
+        .btn-danger { background: #dc2626; }
+        .btn-danger:hover { background: #ef4444; }
+
+        /* ---------- Progress ---------- */
+        .progress { margin-top: 1rem; }
+        .progress-label { display: flex; justify-content: space-between; font-size: .75rem; color: #94a3b8; margin-bottom: .25rem; }
+        .progress-track { height: .375rem; background: #1e293b; border-radius: 9999px; overflow: hidden; }
+        .progress-fill { height: 100%; background: #3b82f6; border-radius: 9999px; transition: width .3s; }
+
+        /* ---------- Stats ---------- */
+        .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+        @media (min-width: 768px) { .stats { grid-template-columns: repeat(4, 1fr); } }
+        .stat { background: rgba(30,41,59,.7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,.1); border-radius: .75rem; padding: 1rem; min-width: 0; }
+        .stat-label { font-size: .75rem; color: #94a3b8; margin-bottom: .25rem; }
+        .stat-value { font-size: 1.5rem; font-weight: 700; color: #fff; }
+        .stat-value small { font-size: .875rem; color: #64748b; font-weight: 400; }
+        .stat-sub { font-size: .75rem; color: #64748b; font-family: ui-monospace, monospace; }
+        .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+        /* ---------- Filter chips ---------- */
+        .chips { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: 1.5rem; }
+        .chip { padding: .25rem .75rem; border-radius: 9999px; font-size: .875rem; border: 1px solid #334155; background: #1e293b; color: #94a3b8; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
+        .chip:hover { border-color: #3b82f6; }
+        .chip-active { background: #2563eb; color: #fff; border-color: #3b82f6; }
+        .chip .count { opacity: .7; }
+        .retry-btn { margin-left: auto; padding: .25rem .75rem; border-radius: 9999px; font-size: .875rem; background: rgba(217,119,6,.2); color: #fbbf24; border: 1px solid rgba(217,119,6,.4); cursor: pointer; transition: background .2s; }
+        .retry-btn:hover { background: rgba(217,119,6,.35); }
+
+        /* ---------- Table ---------- */
+        .table-card { background: rgba(30,41,59,.7); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,.1); border-radius: 1rem; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,.35); }
+        .table-scroll { overflow-x: auto; }
+        table.nodes { width: 100%; text-align: left; border-collapse: collapse; min-width: 640px; }
+        table.nodes thead tr { background: rgba(30,41,59,.5); color: #cbd5e1; font-size: .875rem; text-transform: uppercase; }
+        table.nodes th { padding: 1rem 1.5rem; font-weight: 500; }
+        table.nodes td { padding: 1rem 1.5rem; border-top: 1px solid rgba(51,65,85,.5); }
+        table.nodes tbody tr { transition: background .2s; }
+        table.nodes tbody tr:hover { background: rgba(51,65,85,.3); }
+        .cell-name { color: #e2e8f0; font-weight: 500; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cell-country span { cursor: pointer; transition: color .2s; }
+        .cell-country span:hover { color: #60a5fa; }
+        .mono { font-family: ui-monospace, SFMono-Regular, monospace; }
+        .status-ok { color: #4ade80; font-size: .875rem; }
+        .status-fail { color: #f87171; font-size: .875rem; }
+        .status-testing { color: #94a3b8; font-size: .875rem; }
+        .row-actions { text-align: right; white-space: nowrap; }
+        .row-btn { background: none; border: none; cursor: pointer; padding: .5rem; color: #94a3b8; font-size: 1rem; transition: color .2s; }
+        .row-btn:hover { color: #fff; }
+        .row-btn.amber { color: #fbbf24; }
+        .row-btn.amber:hover { color: #fcd34d; }
+
+        /* ---------- Bottom floating bar ---------- */
+        .bottom-bar { position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: rgba(30,41,59,.88); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid rgba(59,130,246,.5); padding: .75rem 1.25rem; border-radius: 9999px; box-shadow: 0 20px 50px rgba(0,0,0,.5); display: flex; align-items: center; gap: .75rem; z-index: 50; max-width: 96vw; flex-wrap: wrap; justify-content: center; }
+        .bottom-bar .label { font-size: .875rem; color: #cbd5e1; white-space: nowrap; }
+        .btn-pill { padding: .375rem 1rem; border-radius: 9999px; font-size: .875rem; font-weight: 700; border: none; cursor: pointer; color: #fff; white-space: nowrap; display: inline-flex; align-items: center; gap: .375rem; transition: background .2s; }
+        .btn-pill.primary { background: #2563eb; }
+        .btn-pill.primary:hover { background: #3b82f6; }
+        .btn-pill.dark { background: #334155; }
+        .btn-pill.dark:hover { background: #475569; }
+
+        /* ---------- Empty state ---------- */
+        .empty { text-align: center; padding: 5rem 0; color: #64748b; }
+        .empty i { font-size: 3.75rem; color: #334155; margin-bottom: 1rem; display: block; }
+        .spacer { height: 7rem; }
+
+        /* ---------- Misc ---------- */
         .latency-low { color: #4ade80; }
         .latency-mid { color: #fbbf24; }
         .latency-high { color: #f87171; }
-        .fade-enter-active, .fade-leave-active { transition: all 0.3s ease; }
+        .fade-enter-active, .fade-leave-active { transition: all .3s ease; }
         .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(10px); }
+        .pulse-dot { animation: pulseDot 1.5s ease-in-out infinite; }
+        @keyframes pulseDot { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
     </style>
 </head>
-<body class="p-4 md:p-8 pb-40"> <!-- 增加底部内边距 -->
-    <div id="app" class="max-w-6xl mx-auto">
+<body>
+    <div id="app" v-cloak class="container">
         <!-- Header -->
-        <div class="flex items-center justify-between mb-8">
+        <div class="header">
             <div>
-                <h1 class="text-3xl font-bold text-white flex items-center gap-3">
-                    <i class="fas fa-satellite-dish text-blue-500"></i> Node Analyzer
-                </h1>
-                <p class="text-slate-400 mt-1">专业级节点链路质量探测工具</p>
+                <h1><i class="fas fa-satellite-dish"></i> Node Analyzer</h1>
+                <div class="subtitle">专业级节点链路质量探测工具</div>
             </div>
-            <div class="text-right hidden md:block">
-                <span class="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded border border-blue-500/30">Backend: Online</span>
-            </div>
-        </div>
-
-        <!-- Input Section -->
-        <div class="glass rounded-2xl p-6 mb-8 shadow-xl">
-            <div class="flex flex-col md:flex-row gap-4">
-                <input v-model="inputUrl" 
-                       type="text" 
-                       placeholder="粘贴单节点链接或订阅 URL..." 
-                       class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all">
-                <button @click="startAnalysis" 
-                        :disabled="loading"
-                        class="bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-bold py-3 px-8 rounded-xl transition-all flex items-center justify-center gap-2">
-                    <i v-if="loading" class="fas fa-spinner fa-spin"></i>
-                    <span v-else>开始分析</span>
+            <div class="backend-wrap">
+                <span :class="backendBadgeClass">
+                    <span v-if="backendState === 'checking'" class="dot pulse-dot" style="background:#94a3b8"></span>
+                    <span v-else class="dot" :style="{ background: backendState === 'online' ? '#4ade80' : '#f87171' }"></span>
+                    Backend: {{ backendText }}
+                </span>
+                <button @click="checkBackend" title="重新检测后端" class="icon-btn">
+                    <i class="fas fa-sync-alt" :class="{ 'fa-spin': backendState === 'checking' }"></i>
                 </button>
             </div>
         </div>
 
+        <!-- Toasts -->
+        <transition-group name="toast" tag="div" class="toasts">
+            <div v-for="t in toasts" :key="t.id" class="toast" :class="'toast-' + t.type">
+                <i :class="t.type === 'error' ? 'fas fa-exclamation-circle' : t.type === 'warn' ? 'fas fa-exclamation-triangle' : 'fas fa-check-circle'"
+                   :style="{ color: t.type === 'error' ? '#f87171' : t.type === 'warn' ? '#fbbf24' : '#4ade80' }"></i>
+                <span>{{ t.text }}</span>
+            </div>
+        </transition-group>
+
+        <!-- Input Section -->
+        <div class="card">
+            <div class="input-row">
+                <div class="input-wrap">
+                    <input v-model="inputUrl"
+                           @keyup.enter="busy ? stopAnalysis() : startAnalysis()"
+                           type="text"
+                           placeholder="粘贴单节点链接或订阅 URL…（回车开始）"
+                           class="text-input">
+                    <button v-if="inputUrl" @click="inputUrl = ''" title="清空" class="clear-btn">
+                        <i class="fas fa-times-circle"></i>
+                    </button>
+                </div>
+                <button v-if="!busy" @click="startAnalysis" class="btn btn-primary">开始分析</button>
+                <button v-else @click="stopAnalysis" class="btn btn-danger"><i class="fas fa-stop"></i> 停止</button>
+            </div>
+            <div v-if="busy" class="progress">
+                <div class="progress-label"><span>测速进度</span><span>{{ testedCount }} / {{ nodes.length }}</span></div>
+                <div class="progress-track">
+                    <div class="progress-fill" :style="{ width: (nodes.length ? (testedCount / nodes.length * 100) : 0) + '%' }"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div v-if="nodes.length > 0" class="stats">
+            <div class="stat">
+                <div class="stat-label">节点总数</div>
+                <div class="stat-value">{{ nodes.length }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">已完成测速</div>
+                <div class="stat-value">{{ testedCount }}<small>/{{ nodes.length }}</small></div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">平均延迟</div>
+                <div class="stat-value" :class="getLatencyClass(avgLatency)">{{ validNodes.length ? avgLatency + ' ms' : '—' }}</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">最快节点</div>
+                <div class="stat-value truncate" style="font-size:1rem;color:#4ade80" :title="fastestNode ? fastestNode.name : ''">{{ fastestNode ? fastestNode.name : '—' }}</div>
+                <div class="stat-sub">{{ fastestNode ? fastestNode.latency + ' ms' : '' }}</div>
+            </div>
+        </div>
+
         <!-- Filter Chips -->
-        <div v-if="nodes.length > 0" class="flex flex-wrap gap-2 mb-6">
-            <button @click="filterCountry = ''" 
-                    :class="filterCountry === '' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'"
-                    class="px-3 py-1 rounded-full text-sm transition-all border border-slate-700 hover:border-blue-500">
-                全部
+        <div v-if="nodes.length > 0" class="chips">
+            <button @click="filterCountry = ''" :class="['chip', { 'chip-active': filterCountry === '' }]">
+                全部 <span class="count">({{ nodes.length }})</span>
             </button>
-            <button v-for="country in uniqueCountries" 
-                    @click="filterCountry = country"
-                    :class="filterCountry === country ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'"
-                    class="px-3 py-1 rounded-full text-sm transition-all border border-slate-700 hover:border-blue-500">
-                {{ country }}
+            <button v-for="[country, count] in countryStats" :key="country"
+                    @click="filterCountry = country" :class="['chip', { 'chip-active': filterCountry === country }]">
+                {{ displayCountry(country) }} <span class="count">({{ count }})</span>
+            </button>
+            <button v-if="failedCount > 0" @click="retryFailed" class="retry-btn">
+                <i class="fas fa-redo"></i> 重试失败 ({{ failedCount }})
             </button>
         </div>
 
         <!-- Table Section -->
-        <div v-if="nodes.length > 0" class="glass rounded-2xl overflow-hidden shadow-xl">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-slate-800/50 text-slate-300 text-sm uppercase">
-                        <th class="px-6 py-4 font-medium">节点名称</th>
-                        <th class="px-6 py-4 font-medium">国家/地区</th>
-                        <th class="px-6 py-4 font-medium">延迟 (RTT)</th>
-                        <th class="px-6 py-4 font-medium text-right">操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="(node, index) in filteredNodes" 
-                        :key="index" 
-                        class="border-t border-slate-700/50 hover:bg-slate-700/30 transition-colors">
-                        <td class="px-6 py-4 text-slate-200 font-medium">{{ node.name }}</td>
-                        <td class="px-6 py-4">
-                            <span class="cursor-pointer hover:text-blue-400 transition-colors" @click="filterCountry = node.country">
-                                {{ node.country }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 font-mono">
-                            <span :class="getLatencyClass(node.latency)">
-                                {{ node.latency === 0 ? 'Testing...' : node.latency + ' ms' }}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            <button @click="copyText(node.link)" class="text-slate-400 hover:text-white transition-colors p-2">
-                                <i class="far fa-copy"></i>
-                            </button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+        <div v-if="nodes.length > 0" class="table-card">
+            <div class="table-scroll">
+                <table class="nodes">
+                    <thead>
+                        <tr>
+                            <th>节点名称</th>
+                            <th>国家/地区</th>
+                            <th>延迟 (RTT)</th>
+                            <th>状态</th>
+                            <th style="text-align:right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(node, index) in filteredNodes" :key="node.link || index">
+                            <td><div class="cell-name" :title="node.name">{{ node.name }}</div></td>
+                            <td class="cell-country">
+                                <span @click="filterCountry = node.country">{{ displayCountry(node.country) }}</span>
+                            </td>
+                            <td class="mono">
+                                <span :class="getLatencyClass(node.latency)">
+                                    <i v-if="node.testing" class="fas fa-spinner fa-spin" style="margin-right:.25rem;color:#64748b"></i>{{ node.testing ? '测速中…' : latencyText(node.latency) }}
+                                </span>
+                            </td>
+                            <td>
+                                <span v-if="node.testing" class="status-testing">测速中</span>
+                                <span v-else-if="node.latency >= 999" class="status-fail"><i class="fas fa-times-circle"></i> 失败</span>
+                                <span v-else class="status-ok"><i class="fas fa-check-circle"></i> 完成</span>
+                            </td>
+                            <td class="row-actions">
+                                <button v-if="node.latency >= 999 && !node.testing" @click="retestOne(node)" title="重新测速" class="row-btn amber">
+                                    <i class="fas fa-redo"></i>
+                                </button>
+                                <button @click="copyText(node.link, '已复制单个节点')" title="复制链接" class="row-btn">
+                                    <i class="far fa-copy"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <!-- Bulk Copy Action -->
         <transition name="fade">
-            <div v-if="filterCountry && filteredNodes.length > 0" class="fixed bottom-8 left-1/2 -translate-x-1/2 glass px-6 py-4 rounded-full shadow-2xl flex items-center gap-4 border-blue-500/50 z-50">
-                <span class="text-sm text-slate-300">已筛选 {{ filterCountry }} ({{ filteredNodes.length }}个)</span>
-                <button @click="copyBulk" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-1 rounded-full text-sm font-bold transition-all">
-                    复制所有节点
+            <div v-if="nodes.length > 0" class="bottom-bar">
+                <span class="label">{{ filterCountry ? `已筛选 ${displayCountry(filterCountry)}` : '全部节点' }}（{{ filteredNodes.length }} 个）</span>
+                <button @click="copyBulk" class="btn-pill primary"><i class="far fa-copy"></i>复制当前视图</button>
+                <button @click="exportTxt" class="btn-pill dark"><i class="fas fa-download"></i>导出 TXT</button>
+                <button v-if="filterCountry" @click="filterCountry = ''" title="清除筛选" class="row-btn">
+                    <i class="fas fa-times"></i>
                 </button>
             </div>
         </transition>
 
         <!-- Empty State -->
-        <div v-if="nodes.length === 0 && !loading" class="text-center py-20">
-            <i class="fas fa-network-wired text-6xl text-slate-700 mb-4"></i>
-            <p class="text-slate-500">请输入订阅链接开始探测</p>
+        <div v-if="nodes.length === 0 && !loading" class="empty">
+            <i class="fas fa-network-wired"></i>
+            <p>请输入订阅链接开始探测</p>
         </div>
 
-        <!-- 底部占位符：彻底解决遮挡问题 -->
-        <div class="h-32"></div>
+        <!-- 底部占位符：防止悬浮栏遮挡内容 -->
+        <div v-if="nodes.length > 0" class="spacer"></div>
+    </div>
+
+    <!-- Vue 加载失败时的兜底提示 -->
+    <div id="vue-fallback" class="container" style="display:none">
+        <div class="empty">
+            <i class="fas fa-exclamation-triangle" style="color:#f59e0b"></i>
+            <p>Vue.js 加载失败，页面无法渲染</p>
+            <p style="font-size:.875rem">请检查网络连接（需要能访问 cdnjs / jsdelivr / unpkg 其中之一），然后刷新重试</p>
+        </div>
     </div>
 
     <script>
-        const { createApp, ref, computed } = Vue;
+        function boot() {
+        const { createApp, ref, computed, onMounted } = Vue;
 
         createApp({
             setup() {
-                const API_BASE_URL = '{{B_IP}}'; 
+                const API_BASE_URL = 'https://jd.yggg.kdns.fr';
+                const PING_CONCURRENCY = 8;   // 测速并发数，避免请求风暴被后端限流
+                const PING_TIMEOUT = 15000;   // 单节点测速超时
 
                 const inputUrl = ref('');
                 const loading = ref(false);
                 const nodes = ref([]);
                 const filterCountry = ref('');
+                const backendState = ref('checking');
+                const toasts = ref([]);
 
-                const uniqueCountries = computed(() => {
-                    const countries = nodes.value.map(n => n.country);
-                    return [...new Set(countries)].filter(c => c && c !== 'Unknown');
+                let toastId = 0;
+                let runSeq = 0; // 运行令牌：新分析/停止时递增，作废旧请求的结果
+
+                /* ---------- Toast ---------- */
+                const toast = (text, type = 'success') => {
+                    const id = ++toastId;
+                    toasts.value.push({ id, text, type });
+                    setTimeout(() => { toasts.value = toasts.value.filter(t => t.id !== id); }, 2800);
+                };
+
+                /* ---------- 后端状态 ---------- */
+                const checkBackend = async () => {
+                    backendState.value = 'checking';
+                    try {
+                        const ctrl = new AbortController();
+                        const t = setTimeout(() => ctrl.abort(), 6000);
+                        await fetch(API_BASE_URL + '/', { signal: ctrl.signal, mode: 'cors' });
+                        clearTimeout(t);
+                        backendState.value = 'online'; // 只要服务器有响应（哪怕 404）即视为在线
+                    } catch (e) {
+                        backendState.value = 'offline';
+                    }
+                };
+                onMounted(checkBackend);
+
+                /* ---------- 计算属性 ---------- */
+                const busy = computed(() => loading.value || nodes.value.some(n => n.testing));
+
+                const backendBadgeClass = computed(() => 'badge ' + (
+                    backendState.value === 'online' ? 'badge-online' :
+                    backendState.value === 'offline' ? 'badge-offline' : 'badge-checking'));
+                const backendText = computed(() => (
+                    backendState.value === 'online' ? 'Online' :
+                    backendState.value === 'offline' ? 'Offline' : 'Checking…'));
+
+                const countryStats = computed(() => {
+                    const m = new Map();
+                    nodes.value.forEach(n => {
+                        const c = n.country || 'Unknown';
+                        m.set(c, (m.get(c) || 0) + 1);
+                    });
+                    return [...m.entries()].sort((a, b) => b[1] - a[1]);
                 });
 
                 const filteredNodes = computed(() => {
@@ -142,12 +351,28 @@
                         result = result.filter(n => n.country === filterCountry.value);
                     }
                     return result.sort((a, b) => {
-                        if (a.latency === 0) return 1;
+                        if (a.latency === 0 && b.latency === 0) return 0;
+                        if (a.latency === 0) return 1;   // 测速中的沉底
                         if (b.latency === 0) return -1;
-                        return a.latency - b.latency;
+                        return a.latency - b.latency;    // 999（失败）自然排最后
                     });
                 });
 
+                const validNodes = computed(() => nodes.value.filter(n => n.latency > 0 && n.latency < 999));
+                const testedCount = computed(() => nodes.value.filter(n => n.latency > 0).length);
+                const failedCount = computed(() => nodes.value.filter(n => n.latency >= 999).length);
+                const avgLatency = computed(() => {
+                    if (!validNodes.value.length) return 0;
+                    return Math.round(validNodes.value.reduce((s, n) => s + n.latency, 0) / validNodes.value.length);
+                });
+                const fastestNode = computed(() => {
+                    if (!validNodes.value.length) return null;
+                    return validNodes.value.reduce((a, b) => (a.latency <= b.latency ? a : b));
+                });
+
+                /* ---------- 展示辅助 ---------- */
+                const displayCountry = (c) => (c === 'Unknown' || !c) ? '未知' : c;
+                const latencyText = (ms) => (ms >= 999 ? '超时' : ms + ' ms');
                 const getLatencyClass = (ms) => {
                     if (ms === 0) return 'text-slate-500';
                     if (ms < 100) return 'latency-low';
@@ -155,52 +380,185 @@
                     return 'latency-high';
                 };
 
-                const startAnalysis = async () => {
-                    if (!inputUrl.value) return;
-                    loading.value = true;
-                    nodes.value = [];
-                    filterCountry.value = ''; 
-
+                /* ---------- 测速核心 ---------- */
+                const testNode = async (node, token) => {
+                    if (token !== runSeq) return;
+                    if (!node.link) { node.latency = 999; node.testing = false; return; }
+                    node.testing = true;
                     try {
-                        const res = await fetch(`${API_BASE_URL}/parse?url=${encodeURIComponent(inputUrl.value)}`);
-                        const data = await res.json();
-                        nodes.value = data;
-
-                        nodes.value.forEach(async (node, index) => {
-                            try {
-                                const pRes = await fetch(`${API_BASE_URL}/ping?link=${encodeURIComponent(node.link)}`);
-                                const pData = await pRes.json();
-                                nodes.value[index].latency = pData.latency;
-                                nodes.value[index].country = pData.country;
-                            } catch (e) {
-                                nodes.value[index].latency = 999;
-                            }
-                        });
+                        const ctrl = new AbortController();
+                        const t = setTimeout(() => ctrl.abort(), PING_TIMEOUT);
+                        const res = await fetch(`${API_BASE_URL}/ping?link=${encodeURIComponent(node.link)}`, { signal: ctrl.signal });
+                        clearTimeout(t);
+                        if (!res.ok) throw new Error('ping http ' + res.status);
+                        const d = await res.json();
+                        if (token !== runSeq) return;
+                        node.latency = (d && typeof d.latency === 'number') ? d.latency : 999;
+                        if (d && d.country) node.country = d.country;
                     } catch (e) {
-                        alert('请求后端失败，请检查 API 地址是否正确');
+                        if (token !== runSeq) return;
+                        node.latency = 999;
                     } finally {
-                        loading.value = false;
+                        node.testing = false;
                     }
                 };
 
-                const copyText = (text) => {
-                    navigator.clipboard.writeText(text);
-                    alert('已复制到剪贴板');
+                // 并发池：限制同时测速数量，防止后端限流导致大面积失败
+                const runWithLimit = async (items, limit, fn, token) => {
+                    const queue = [...items];
+                    const workers = Array.from({ length: Math.min(limit, queue.length) }, async () => {
+                        while (queue.length && token === runSeq) {
+                            const item = queue.shift();
+                            await fn(item, token);
+                        }
+                    });
+                    await Promise.all(workers);
+                };
+
+                /* ---------- 主流程 ---------- */
+                const startAnalysis = async () => {
+                    if (!inputUrl.value.trim()) { toast('请先粘贴节点链接或订阅 URL', 'error'); return; }
+                    const token = ++runSeq;
+                    loading.value = true;
+                    nodes.value = [];
+                    filterCountry.value = '';
+
+                    try {
+                        const ctrl = new AbortController();
+                        const t = setTimeout(() => ctrl.abort(), 30000);
+                        const res = await fetch(`${API_BASE_URL}/parse?url=${encodeURIComponent(inputUrl.value.trim())}`, { signal: ctrl.signal });
+                        clearTimeout(t);
+                        if (!res.ok) throw new Error(`后端返回 HTTP ${res.status}`);
+                        const raw = await res.json();
+                        // 兼容多种返回形态：数组 / {nodes:[]} / {data:[]}
+                        const arr = Array.isArray(raw) ? raw : (raw && (raw.nodes || raw.data)) || [];
+                        if (!Array.isArray(arr) || arr.length === 0) {
+                            const msg = raw && (raw.message || raw.error);
+                            throw new Error(msg || '未解析到任何节点，请检查链接是否有效');
+                        }
+                        if (token !== runSeq) return;
+                        nodes.value = arr.map(x => ({
+                            name: x.name || x.ps || '未命名节点',
+                            country: x.country || 'Unknown',
+                            latency: 0,
+                            link: x.link || x.url || '',
+                            testing: false,
+                        }));
+                        toast(`解析成功，共 ${nodes.value.length} 个节点，开始测速…`);
+                        await runWithLimit(nodes.value, PING_CONCURRENCY, testNode, token);
+                        if (token === runSeq) {
+                            const failed = nodes.value.filter(n => n.latency >= 999).length;
+                            toast(failed ? `测速完成，${failed} 个节点失败，可点击重试` : '全部节点测速完成', failed ? 'warn' : 'success');
+                        }
+                    } catch (e) {
+                        if (token !== runSeq) return;
+                        toast(e.name === 'AbortError' ? '请求超时，请检查网络或后端状态' : `解析失败：${e.message}`, 'error');
+                    } finally {
+                        if (token === runSeq) loading.value = false;
+                    }
+                };
+
+                const stopAnalysis = () => {
+                    runSeq++; // 作废所有在途请求
+                    loading.value = false;
+                    nodes.value.forEach(n => { n.testing = false; });
+                    toast('已停止', 'warn');
+                };
+
+                const currentToken = () => (nodes.value.some(n => n.testing) ? runSeq : ++runSeq);
+
+                const retryFailed = async () => {
+                    const failed = nodes.value.filter(n => n.latency >= 999 && !n.testing);
+                    if (!failed.length) { toast('没有失败的节点需要重试'); return; }
+                    const token = currentToken();
+                    failed.forEach(n => { n.latency = 0; n.testing = false; });
+                    toast(`正在重试 ${failed.length} 个节点…`);
+                    await runWithLimit(failed, PING_CONCURRENCY, testNode, token);
+                    if (token === runSeq) toast('重试完成', 'success');
+                };
+
+                const retestOne = async (node) => {
+                    if (node.testing) return;
+                    const token = currentToken();
+                    node.latency = 0;
+                    await testNode(node, token);
+                };
+
+                /* ---------- 复制 / 导出 ---------- */
+                const copyText = async (text, msg) => {
+                    if (!text) { toast('该节点没有可复制的链接', 'error'); return; }
+                    try {
+                        if (navigator.clipboard && window.isSecureContext) {
+                            await navigator.clipboard.writeText(text);
+                        } else {
+                            // 非 HTTPS 环境降级方案
+                            const ta = document.createElement('textarea');
+                            ta.value = text;
+                            ta.style.position = 'fixed';
+                            ta.style.opacity = '0';
+                            document.body.appendChild(ta);
+                            ta.select();
+                            const ok = document.execCommand('copy');
+                            document.body.removeChild(ta);
+                            if (!ok) throw new Error('copy failed');
+                        }
+                        toast(msg || '已复制到剪贴板');
+                    } catch (e) {
+                        toast('复制失败：浏览器限制，请手动复制', 'error');
+                    }
                 };
 
                 const copyBulk = () => {
                     const text = filteredNodes.value.map(n => n.link).join('\n');
-                    navigator.clipboard.writeText(text);
-                    alert(`已复制 ${filteredNodes.value.length} 个节点`);
+                    copyText(text, `已复制 ${filteredNodes.value.length} 个节点`);
+                };
+
+                const exportTxt = () => {
+                    const text = filteredNodes.value.map(n => n.link).join('\n');
+                    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = `nodes-${new Date().toISOString().slice(0, 10)}.txt`;
+                    document.body.appendChild(a);
+                    a.click();
+                    a.remove();
+                    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+                    toast(`已导出 ${filteredNodes.value.length} 个节点`);
                 };
 
                 return {
-                    inputUrl, loading, nodes, filterCountry, 
-                    uniqueCountries, filteredNodes, 
-                    getLatencyClass, startAnalysis, copyText, copyBulk
+                    inputUrl, loading, nodes, filterCountry, backendState, backendBadgeClass, backendText, toasts,
+                    busy, countryStats, filteredNodes, validNodes, testedCount, failedCount, avgLatency, fastestNode,
+                    displayCountry, latencyText, getLatencyClass,
+                    checkBackend, startAnalysis, stopAnalysis, retryFailed, retestOne,
+                    copyText, copyBulk, exportTxt,
                 };
             }
         }).mount('#app');
+        }
+
+        // Vue CDN 顺序兜底加载：cdnjs（国内通常可访问）→ jsdelivr → unpkg
+        (function () {
+            var cdnList = [
+                'https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.min.js',
+                'https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.min.js',
+                'https://unpkg.com/vue@3.4.21/dist/vue.global.js'
+            ];
+            function loadNext(i) {
+                if (window.Vue) { boot(); return; }
+                if (i >= cdnList.length) {
+                    document.getElementById('app').style.display = 'none';
+                    document.getElementById('vue-fallback').style.display = 'block';
+                    return;
+                }
+                var s = document.createElement('script');
+                s.src = cdnList[i];
+                s.onload = function () { loadNext(i + 1); };
+                s.onerror = function () { loadNext(i + 1); };
+                document.head.appendChild(s);
+            }
+            loadNext(0);
+        })();
     </script>
 </body>
 </html>
