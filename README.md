@@ -1,6 +1,6 @@
 # 🚀 节点质量分析仪 (Node Analyzer) 部署全指南
 
-![成品展示](https://tup.pibaihuo.com/2608/09-18_17-15-10.jpg)
+![成品展示]((https://tup.pibaihuo.com/2610/10-01_18-15-01.jpg)
 
 本项目实现了一个专业的代理节点延迟探测系统。通过 Go + Docker (Alpine) 构建高性能后端，Cloudflare Tunnel
 实现安全内网穿透，Vue 3 + Tailwind CSS 构建现代化的前端仪表盘。
